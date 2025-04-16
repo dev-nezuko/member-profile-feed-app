@@ -8,6 +8,7 @@ export interface MemberProfile {
   likes?: { likedById: string }[];
 }
 interface LoginResult { token: string; userId: string; }
+export interface LikeSummary { likeCount: number; likedByCurrentUser: boolean; }
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
@@ -35,8 +36,8 @@ export const api = createApi({
         });
       }
     }),    
-    likeProfile: builder.mutation({ query: (id: string) => ({ url: `profile/${id}/like`, method: 'POST' }) }),
-    unlikeProfile: builder.mutation({ query: (id: string) => ({ url: `profile/${id}/unlike`, method: 'DELETE' }) }),
+    likeProfile: builder.mutation<LikeSummary, string>({ query: (id) => ({ url: `profile/${id}/like`, method: 'POST' }) }),
+    unlikeProfile: builder.mutation<LikeSummary, string>({ query: (id) => ({ url: `profile/${id}/unlike`, method: 'DELETE' }) }),
   }),
 });
 

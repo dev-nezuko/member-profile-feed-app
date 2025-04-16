@@ -9,6 +9,13 @@ const parser = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024, files: 1, fields: 4, fieldSize: 4000, parts: 6 },
 }).single('photo');
+
+export const uploadDirectory = () => path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
+
+export function removeStoredPhoto(photoUrl: string | null | undefined) {
+  if (!photoUrl) return;
+  fs.rmSync(path.join(uploadDirectory(), path.basename(photoUrl)), { force: true });
+}
 export const upload = {
   single: (_field: string): RequestHandler => (req, res, next) => {
     parser(req, res, (error) => {
@@ -22,7 +29,7 @@ export const upload = {
       if (req.file) {
         const extension = imageExtension(req.file.buffer);
         if (!extension) return res.status(400).json({ error: 'Only JPEG and PNG signatures are accepted' });
-        const directory = path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'));
+        const directory = uploadDirectory();
         try {
           fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
           req.file.filename = randomUUID() + extension;

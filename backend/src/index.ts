@@ -4,7 +4,7 @@ import cors from 'cors';
 
 import authRoutes from './routes/auth.route';
 import profileRoutes from './routes/profile.route';
-import path from 'path';
+import { uploadDirectory } from './middleware/uploadMiddleware';
 
 export const app = express();
 
@@ -13,7 +13,7 @@ app.use(express.json({ limit: '16kb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads')), { dotfiles: 'deny', setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff'); } }));
+app.use('/uploads', express.static(uploadDirectory(), { dotfiles: 'deny', setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff'); } }));
 
 const errors: ErrorRequestHandler = (_error, _req, res, _next) => {
   res.status(500).json({ error: 'Request could not be completed' });

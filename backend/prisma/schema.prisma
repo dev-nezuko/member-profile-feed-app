@@ -31,6 +31,8 @@ model Like {
   id           String   @id @default(uuid())
   profileId    String
   likedById    String
-  profile      Profile  @relation(fields: [profileId], references: [id])
-  likedBy      User     @relation(fields: [likedById], references: [id])
+  profile      Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  likedBy      User     @relation(fields: [likedById], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, likedById])
 }

@@ -23,12 +23,10 @@ export default function Feed() {
     setPending(new Set(locked.current));
     setMessage('');
     try {
-      if (profile.likedByCurrentUser) await unlike(profile.id).unwrap();
-      else await like(profile.id).unwrap();
-      setProfiles((previous) => previous.map((item) => item.id === profile.id ? {
-        ...item, likedByCurrentUser: !profile.likedByCurrentUser,
-        likeCount: Math.max(0, item.likeCount + (profile.likedByCurrentUser ? -1 : 1)),
-      } : item));
+      const summary = profile.likedByCurrentUser
+        ? await unlike(profile.id).unwrap()
+        : await like(profile.id).unwrap();
+      setProfiles((previous) => previous.map((item) => item.id === profile.id ? { ...item, ...summary } : item));
     } catch { setMessage('Your change was not saved. Please try again.'); }
     finally { locked.current.delete(profile.id); setPending(new Set(locked.current)); }
   };

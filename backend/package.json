@@ -10,6 +10,7 @@
     "start:dist": "node dist/src/index.js",
     "lint": "eslint .",
     "test": "node -r ts-node/register --test test/*.test.cjs",
+    "test:db": "prisma migrate deploy && node -r ts-node/register --test --test-concurrency=1 test/db/*.test.cjs",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
