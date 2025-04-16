@@ -15,7 +15,7 @@ const router = express.Router();
 router.use(authMiddleware);
 
 router.get('/me', asyncRoute(getProfile));
-router.post('/', authMiddleware, upload.single('photo'), asyncRoute(updateProfile));
+router.post('/', upload.single('photo'), asyncRoute(updateProfile));
 router.delete('/', asyncRoute(deleteProfile));
 router.get('/feed', asyncRoute(getFeed));
 router.post('/:id/like', asyncRoute(likeProfile));

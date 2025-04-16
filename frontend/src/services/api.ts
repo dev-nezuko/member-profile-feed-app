@@ -5,7 +5,6 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 export interface MemberProfile {
   id: string; name: string; headline: string; bio: string; photoUrl?: string;
   interests: string[]; likeCount: number; likedByCurrentUser: boolean;
-  likes?: { likedById: string }[];
 }
 interface LoginResult { token: string; userId: string; }
 export interface LikeSummary { likeCount: number; likedByCurrentUser: boolean; }
@@ -25,17 +24,7 @@ export const api = createApi({
     getProfile: builder.query<MemberProfile, void>({ query: () => 'profile/me' }),
     updateProfile: builder.mutation({ query: (data) => ({ url: 'profile', method: 'POST', body: data }) }),
     deleteProfile: builder.mutation({ query: () => ({ url: 'profile', method: 'DELETE' }) }),
-    getFeed: builder.query<MemberProfile[], number>({
-      query: (page = 1) => `profile/feed?page=${page}&limit=5`,
-      transformResponse: (res: MemberProfile[]) => {
-        const userId = localStorage.getItem('userId');
-        return res.map((p) => {
-          const clone = structuredClone(p);
-          clone.likedByCurrentUser = Boolean(p.likes?.some((like: { likedById: string }) => like.likedById === userId));
-          return clone;
-        });
-      }
-    }),    
+    getFeed: builder.query<MemberProfile[], number>({ query: (page = 1) => `profile/feed?page=${page}&limit=5` }),
     likeProfile: builder.mutation<LikeSummary, string>({ query: (id) => ({ url: `profile/${id}/like`, method: 'POST' }) }),
     unlikeProfile: builder.mutation<LikeSummary, string>({ query: (id) => ({ url: `profile/${id}/unlike`, method: 'DELETE' }) }),
   }),

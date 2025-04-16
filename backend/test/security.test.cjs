@@ -8,6 +8,7 @@ const request = require('supertest');
 const jwt = require('jsonwebtoken');
 const { issueToken, tokenIdentity, validCredentials, imageExtension, asyncRoute } = require('../src/security');
 const { upload } = require('../src/middleware/uploadMiddleware');
+const { parseInterests } = require('../src/controllers/profile.controller');
 
 test('signing boundary and credentials are bounded', () => {
   delete process.env.JWT_SECRET;
@@ -50,4 +51,8 @@ test('async route sends rejected promises to the Express error handler', async (
   const result = await request(app).get('/');
   assert.equal(result.status, 500);
   assert.equal(result.body.error, 'Request failed');
+});
+test('interests are trimmed, de-duplicated and never empty strings', () => {
+  assert.deepEqual(parseInterests(' clay, , glaze,clay '), ['clay', 'glaze']);
+  assert.deepEqual(parseInterests(''), []);
 });

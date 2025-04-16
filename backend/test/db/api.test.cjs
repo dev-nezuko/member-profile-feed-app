@@ -49,8 +49,18 @@ test('signup and login issue tokens; wrong passwords are rejected', async () => 
   assert.equal(wrong.status, 401);
 });
 
-test('protected routes need a bearer token', async () => {
+test('a second signup with the same email is a conflict', async () => {
+  await member('rowan@example.test');
+  const again = await request(app).post('/api/auth/signup').send({ email: 'rowan@example.test', password: 'another-password' });
+  assert.equal(again.status, 409);
+});
+
+test('protected routes need a valid bearer token', async () => {
+  const { token } = await member('rowan@example.test');
   assert.equal((await request(app).get('/api/profile/me')).status, 401);
+  assert.equal((await request(app).get('/api/profile/me').set('Authorization', `Basic ${token}`)).status, 401);
+  assert.equal((await request(app).get('/api/profile/me').set(auth(`${token}x`))).status, 401);
+  assert.equal((await request(app).get('/api/profile/me').set(auth(token))).status, 404);
 });
 
 test('a member saves a profile with a photo and reads it back', async () => {
@@ -75,10 +85,13 @@ test('the feed lists other members and counts likes', async () => {
   const feed = await request(app).get('/api/profile/feed').set(auth(rowan.token));
   assert.equal(feed.status, 200);
   assert.deepEqual(feed.body.map((item) => item.name), ['Tamsin Vale']);
+  assert.equal(feed.body[0].likes, undefined, 'the feed must not expose who liked a profile');
+  assert.equal(feed.body[0].likedByCurrentUser, false);
   const liked = await request(app).post(`/api/profile/${feed.body[0].id}/like`).set(auth(rowan.token));
   assert.equal(liked.status, 200);
   const after = await request(app).get('/api/profile/feed').set(auth(rowan.token));
   assert.equal(after.body[0].likeCount, 1);
+  assert.equal(after.body[0].likedByCurrentUser, true);
   const unliked = await request(app).delete(`/api/profile/${feed.body[0].id}/unlike`).set(auth(rowan.token));
   assert.equal(unliked.status, 200);
 });
@@ -117,4 +130,32 @@ test('deleting a liked profile removes its likes and its stored photo', async ()
   assert.equal(await prisma.like.count(), 0);
   assert.equal(fs.readdirSync(uploads).length, 0);
   assert.equal((await request(app).delete('/api/profile').set(auth(tamsin.token))).status, 404);
+});
+
+test('saving again updates in place, tidies interests and replaces the old photo file', async () => {
+  const { token } = await member('rowan@example.test');
+  const first = await saveProfile(token).attach('photo', PNG, 'avatar.png');
+  const firstFile = new URL(first.body.photoUrl).pathname.split('/').pop();
+  const second = await saveProfile(token, { name: '  Rowan E.  ', interests: ' clay, , glaze,clay ' }).attach('photo', PNG, 'new.png');
+  assert.equal(second.status, 200);
+  assert.equal(second.body.id, first.body.id);
+  assert.equal(second.body.name, 'Rowan E.');
+  assert.deepEqual(second.body.interests, ['clay', 'glaze']);
+  assert.deepEqual(fs.readdirSync(uploads), [new URL(second.body.photoUrl).pathname.split('/').pop()]);
+  assert.ok(!fs.existsSync(path.join(uploads, firstFile)));
+  const textOnly = await saveProfile(token, { headline: 'Potter' });
+  assert.equal(new URL(textOnly.body.photoUrl).pathname, new URL(second.body.photoUrl).pathname);
+  assert.equal(await prisma.profile.count(), 1);
+});
+
+test('the feed pages through other members, newest first', async () => {
+  const viewer = await member('viewer@example.test');
+  for (const name of ['Ada', 'Bram', 'Cleo']) {
+    const { token } = await member(`${name.toLowerCase()}@example.test`);
+    await saveProfile(token, { name });
+  }
+  const first = await request(app).get('/api/profile/feed?page=1&limit=2').set(auth(viewer.token));
+  const second = await request(app).get('/api/profile/feed?page=2&limit=2').set(auth(viewer.token));
+  assert.deepEqual([...first.body, ...second.body].map((item) => item.name), ['Cleo', 'Bram', 'Ada']);
+  assert.equal((await request(app).get('/api/profile/feed?limit=51').set(auth(viewer.token))).status, 400);
 });
