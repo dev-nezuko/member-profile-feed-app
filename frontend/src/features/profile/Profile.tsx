@@ -1,209 +1,153 @@
+import { useEffect, useState, type FormEvent } from 'react';
 import {
+  errorMessage,
+  useDeleteProfileMutation,
   useGetProfileQuery,
   useUpdateProfileMutation,
-  useDeleteProfileMutation
 } from '../../services/api';
-import { useState, useEffect } from 'react';
+
+interface Draft { name: string; headline: string; bio: string; interests: string; }
+const emptyDraft: Draft = { name: '', headline: '', bio: '', interests: '' };
+
+function usePreviewUrl(file: File | undefined) {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!file) { setUrl(undefined); return undefined; }
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+  return url;
+}
 
 export default function Profile() {
-  const { data, isLoading } = useGetProfileQuery(undefined);
-  const [updateProfile] = useUpdateProfileMutation();
-  const [deleteProfile] = useDeleteProfileMutation();
-
-  const [form, setForm] = useState<{
-    name: string;
-    bio: string;
-    headline: string;
-    interests: string;
-    photoFile?: File;
-    photoUrl?: string;
-  }>({
-    name: '',
-    bio: '',
-    headline: '',
-    interests: '',
-    photoUrl: '',
-  });
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const { data: loaded, isLoading, error: loadError } = useGetProfileQuery();
+  const [updateProfile, { isLoading: isSaving }] = useUpdateProfileMutation();
+  const [deleteProfile, { isLoading: isDeleting }] = useDeleteProfileMutation();
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [photo, setPhoto] = useState<File>();
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const preview = usePreviewUrl(photo);
+  const isNewMember = Boolean(loadError && 'status' in loadError && loadError.status === 404);
+  // RTK Query keeps the last good result after a refetch fails, so a 404 (no profile yet, or just deleted) wins.
+  const data = isNewMember ? undefined : loaded;
 
   useEffect(() => {
-    if (data) {
-      setForm({
-        name: data.name || '',
-        bio: data.bio || '',
-        headline: data.headline || '',
-        interests: data.interests?.join(', ') || '',
-        photoUrl: data.photoUrl || '',
-      });
-    }
+    setDraft(data ? { name: data.name, headline: data.headline, bio: data.bio, interests: data.interests.join(', ') } : emptyDraft);
   }, [data]);
 
-  useEffect(() => {
-    if (successMessage) {
-      setSuccessMessage('');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form]);
+  const edit = (field: keyof Draft, value: string) => {
+    setDraft((previous) => ({ ...previous, [field]: value }));
+    setStatus('');
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setErrorMessage('');
-    setSuccessMessage('');
-
-    const formData = new FormData();
-    formData.append('name', form.name);
-    formData.append('headline', form.headline);
-    formData.append('bio', form.bio);
-    formData.append('interests', form.interests);
-
-    if (form.photoFile) {
-      formData.append('photo', form.photoFile);
-    }
-
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setStatus('');
+    const body = new FormData();
+    for (const [field, value] of Object.entries(draft)) body.append(field, value);
+    if (photo) body.append('photo', photo);
     try {
-      await updateProfile(formData).unwrap();
-      setSuccessMessage('Profile saved successfully!');
-    } catch {
-      setErrorMessage('Profile was not saved. Your draft is still here.');
-    } finally {
-      setIsSubmitting(false);
+      await updateProfile(body).unwrap();
+      setPhoto(undefined);
+      setStatus('Profile saved.');
+    } catch (failure) {
+      setError(errorMessage(failure, 'Profile was not saved. Your draft is still here.'));
     }
   };
 
   const handleDelete = async () => {
-    setErrorMessage('');
+    setError('');
     try {
-    await deleteProfile(undefined).unwrap();
-    setForm({
-      name: '',
-      bio: '',
-      headline: '',
-      interests: '',
-      photoFile: undefined,
-      photoUrl: '',
-    });
-    setConfirmDelete(false);
-    } catch { setErrorMessage('Profile was not deleted. Please try again.'); setConfirmDelete(false); }
+      await deleteProfile().unwrap();
+      setPhoto(undefined);
+      setStatus('Profile deleted.');
+    } catch (failure) {
+      setError(errorMessage(failure, 'Profile was not deleted. Please try again.'));
+    } finally {
+      setConfirmDelete(false);
+    }
   };
 
-  return isLoading ? (
-    <p className='p-6'>Loading...</p>
-  ) : (
-    <div className='max-w-xl mx-auto mt-10 bg-white p-6 shadow rounded-lg'>
-      <h2 className='text-2xl font-bold mb-6'>Your Profile</h2>
-      {errorMessage && <p role="alert" className="text-red-700 mb-4">{errorMessage}</p>}
-      <form onSubmit={handleSubmit} className='space-y-4'>
-        <input
-          className='w-full border rounded px-3 py-2'
-          aria-label='Name'
-          placeholder='Name'
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-        />
-        <input
-          className='w-full border rounded px-3 py-2'
-          aria-label='Headline'
-          placeholder='Headline'
-          value={form.headline}
-          onChange={(e) => setForm({ ...form, headline: e.target.value })}
-        />
-        <textarea
-          className='w-full border rounded px-3 py-2'
-          aria-label='Bio'
-          placeholder='Bio'
-          value={form.bio}
-          onChange={(e) => setForm({ ...form, bio: e.target.value })}
-        />
-        <input
-          className='w-full border rounded px-3 py-2'
-          aria-label='Interests (comma separated)'
-          placeholder='Interests (comma separated)'
-          value={form.interests}
-          onChange={(e) => setForm({ ...form, interests: e.target.value })}
-        />
-        <div>
-          <label
-            htmlFor='photo'
-            className='block cursor-pointer w-24 h-24 rounded overflow-hidden border border-dashed border-gray-300 flex items-center justify-center bg-gray-50 hover:border-blue-500 transition'
-          >
-            {form.photoFile ? (
-              <img src={URL.createObjectURL(form.photoFile)} alt='Preview' className='object-cover w-full h-full' />
-            ) : form.photoUrl ? (
-              <img src={form.photoUrl} alt='Saved' className='object-cover w-full h-full' />
-            ) : (
-              <span className='text-sm text-gray-400'>Upload</span>
-            )}
+  useEffect(() => {
+    if (!confirmDelete) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setConfirmDelete(false); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [confirmDelete]);
+
+  if (isLoading) return <p role="status" className="p-6">Loading your profile…</p>;
+  if (loadError && !isNewMember) return <p role="alert" className="p-6">Your profile could not be loaded. Please refresh the page.</p>;
+
+  const photoSrc = preview ?? data?.photoUrl ?? undefined;
+  return (
+    <main className="max-w-xl mx-auto mt-10 bg-white p-6 shadow rounded-lg">
+      <h1 className="text-2xl font-bold mb-6">{data ? 'Your profile' : 'Create your profile'}</h1>
+      {error && <p role="alert" className="text-red-700 mb-4">{error}</p>}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <label className="block">
+          <span className="block text-sm mb-1">Name</span>
+          <input className="w-full border rounded px-3 py-2" required maxLength={100} value={draft.name}
+            onChange={(event) => edit('name', event.target.value)} />
+        </label>
+        <label className="block">
+          <span className="block text-sm mb-1">Headline</span>
+          <input className="w-full border rounded px-3 py-2" maxLength={200} value={draft.headline}
+            onChange={(event) => edit('headline', event.target.value)} />
+        </label>
+        <label className="block">
+          <span className="block text-sm mb-1">Bio</span>
+          <textarea className="w-full border rounded px-3 py-2" rows={4} maxLength={2000} value={draft.bio}
+            onChange={(event) => edit('bio', event.target.value)} />
+        </label>
+        <label className="block">
+          <span className="block text-sm mb-1">Interests, separated by commas</span>
+          <input className="w-full border rounded px-3 py-2" maxLength={1000} value={draft.interests}
+            onChange={(event) => edit('interests', event.target.value)} />
+        </label>
+        <div className="flex items-center gap-4">
+          {photoSrc
+            ? <img src={photoSrc} alt="Your profile photo" className="w-24 h-24 rounded object-cover" />
+            : <span className="w-24 h-24 rounded border border-dashed grid place-items-center text-sm">No photo</span>}
+          <label className="block">
+            <span className="block text-sm mb-1">Photo (JPEG or PNG, up to 2 MB)</span>
+            <input type="file" accept="image/jpeg,image/png"
+              onChange={(event) => { setPhoto(event.target.files?.[0]); setStatus(''); }} />
           </label>
-          <input
-            id='photo'
-            type='file'
-            accept='image/jpeg,image/png'
-            className='hidden'
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) {
-                setForm((prev) => ({ ...prev, photoFile: file }));
-              }
-            }}
-          />
         </div>
 
-        {successMessage && (
-          <div className='text-green-600 text-sm font-medium'>{successMessage}</div>
-        )}
+        {status && <p role="status" className="text-green-700 text-sm font-medium">{status}</p>}
 
-        <div className='flex space-x-3 pt-4'>
-          <button
-            type='submit'
-            className='bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center justify-center'
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <svg className="animate-spin mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-              </svg>
-            ) : null}
-            {isSubmitting ? 'Saving...' : 'Save'}
+        <div className="flex space-x-3 pt-4">
+          <button type="submit" disabled={isSaving} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            {isSaving ? 'Saving…' : 'Save'}
           </button>
-
-          <button
-            type='button'
-            onClick={() => setConfirmDelete(true)}
-            className='bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600'
-          >
-            Delete
-          </button>
+          {data && (
+            <button type="button" onClick={() => setConfirmDelete(true)} className="bg-red-700 text-white px-4 py-2 rounded hover:bg-red-800">
+              Delete profile
+            </button>
+          )}
         </div>
       </form>
 
       {confirmDelete && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'>
-          <div className='bg-white p-6 rounded-lg shadow-lg w-96 text-center'>
-            <h3 className='text-lg font-semibold mb-4'>Are you sure?</h3>
-            <p className='text-gray-600 mb-6'>This will permanently delete your profile.</p>
-            <div className='flex justify-center space-x-4'>
-              <button
-                onClick={handleDelete}
-                className='bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700'
-              >
-                Yes, delete
-              </button>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className='bg-gray-300 px-4 py-2 rounded hover:bg-gray-400'
-              >
-                Cancel
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description"
+            className="bg-white p-6 rounded-lg shadow-lg w-full max-w-sm text-center">
+            <h2 id="delete-title" className="text-lg font-semibold mb-4">Delete your profile?</h2>
+            <p id="delete-description" className="text-gray-600 mb-6">Your profile, photo and the likes it received will be removed.</p>
+            <div className="flex justify-center space-x-4">
+              <button type="button" autoFocus onClick={() => setConfirmDelete(false)} className="bg-gray-200 px-4 py-2 rounded">Cancel</button>
+              <button type="button" disabled={isDeleting} onClick={handleDelete} className="bg-red-700 text-white px-4 py-2 rounded">
+                {isDeleting ? 'Deleting…' : 'Yes, delete'}
               </button>
             </div>
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 }
