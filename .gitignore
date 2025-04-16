@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+build/
+.test-build/
+coverage/
+*.tsbuildinfo
+.cache/
+.eslintcache
+
+# Local environment
+.env
+.env.*
+!.env.example
+!.env.sample
+project_venv/
+
+# Member photo uploads stay on the machine that received them
+backend/uploads/
+uploads/
+
+# Logs, temp files, editors
+logs/
+*.log
+tmp/
+.DS_Store
+.vscode/
+.idea/
+
+# Not part of this project
+.github/
