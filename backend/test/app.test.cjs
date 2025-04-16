@@ -20,6 +20,12 @@ test('the health check answers without authentication', async () => {
   assert.deepEqual(response.body, { status: 'ok' });
 });
 
+test('unknown API routes answer with JSON, not an HTML error page', async () => {
+  const response = await request(app).get('/api/members');
+  assert.equal(response.status, 404);
+  assert.deepEqual(response.body, { error: 'Not found' });
+});
+
 test('invalid signup bodies are rejected before touching the database', async () => {
   const response = await request(app).post('/api/auth/signup').send({ email: 'not-an-email', password: 'short' });
   assert.equal(response.status, 400);
