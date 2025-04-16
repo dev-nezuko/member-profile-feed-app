@@ -1,8 +1,7 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { prisma } from '../db';
 import { Response } from 'express';
 import { RequestWithUserId } from '../types/express';
-
-const prisma = new PrismaClient();
 
 export const getProfile = async (req: RequestWithUserId, res: Response) => {
   const profile = await prisma.profile.findUnique({

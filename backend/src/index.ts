@@ -1,12 +1,11 @@
+import 'dotenv/config';
 import express, { ErrorRequestHandler } from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 
 import authRoutes from './routes/auth.route';
 import profileRoutes from './routes/profile.route';
 import path from 'path';
 
-dotenv.config();
 export const app = express();
 
 app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173' }));

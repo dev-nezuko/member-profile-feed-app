@@ -1,10 +1,8 @@
 import bcrypt from 'bcrypt';
 import { issueToken, validCredentials } from '../security';
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../db';
 import { RequestWithUserId } from '../types/express';
-
-const prisma = new PrismaClient();
 
 export const signup = async (req: RequestWithUserId, res: Response) => {
   if (!validCredentials(req.body)) return res.status(400).json({ error: 'Use a valid email and an 8–72 byte password' });
