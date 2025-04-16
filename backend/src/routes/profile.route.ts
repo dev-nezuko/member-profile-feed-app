@@ -1,3 +1,4 @@
+import { asyncRoute } from '../security';
 import express from 'express';
 import { authMiddleware } from '../middleware/auth';
 import {
@@ -13,11 +14,11 @@ import { upload } from '../middleware/uploadMiddleware';
 const router = express.Router();
 router.use(authMiddleware);
 
-router.get('/me', getProfile);
-router.post('/', authMiddleware, upload.single('photo'), updateProfile);
-router.delete('/', deleteProfile);
-router.get('/feed', getFeed);
-router.post('/:id/like', likeProfile);
-router.delete('/:id/unlike', unlikeProfile);
+router.get('/me', asyncRoute(getProfile));
+router.post('/', authMiddleware, upload.single('photo'), asyncRoute(updateProfile));
+router.delete('/', asyncRoute(deleteProfile));
+router.get('/feed', asyncRoute(getFeed));
+router.post('/:id/like', asyncRoute(likeProfile));
+router.delete('/:id/unlike', asyncRoute(unlikeProfile));
 
 export default router;

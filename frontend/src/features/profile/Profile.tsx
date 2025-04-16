@@ -28,6 +28,7 @@ export default function Profile() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (data) {
@@ -51,6 +52,7 @@ export default function Profile() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setErrorMessage('');
     setSuccessMessage('');
 
     const formData = new FormData();
@@ -64,17 +66,19 @@ export default function Profile() {
     }
 
     try {
-      await updateProfile(formData);
+      await updateProfile(formData).unwrap();
       setSuccessMessage('Profile saved successfully!');
-    } catch (err) {
-      console.error('Failed to save profile:', err);
+    } catch {
+      setErrorMessage('Profile was not saved. Your draft is still here.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
-    await deleteProfile(undefined);
+    setErrorMessage('');
+    try {
+    await deleteProfile(undefined).unwrap();
     setForm({
       name: '',
       bio: '',
@@ -84,6 +88,7 @@ export default function Profile() {
       photoUrl: '',
     });
     setConfirmDelete(false);
+    } catch { setErrorMessage('Profile was not deleted. Please try again.'); setConfirmDelete(false); }
   };
 
   return isLoading ? (
@@ -91,27 +96,32 @@ export default function Profile() {
   ) : (
     <div className='max-w-xl mx-auto mt-10 bg-white p-6 shadow rounded-lg'>
       <h2 className='text-2xl font-bold mb-6'>Your Profile</h2>
+      {errorMessage && <p role="alert" className="text-red-700 mb-4">{errorMessage}</p>}
       <form onSubmit={handleSubmit} className='space-y-4'>
         <input
           className='w-full border rounded px-3 py-2'
+          aria-label='Name'
           placeholder='Name'
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
         />
         <input
           className='w-full border rounded px-3 py-2'
+          aria-label='Headline'
           placeholder='Headline'
           value={form.headline}
           onChange={(e) => setForm({ ...form, headline: e.target.value })}
         />
         <textarea
           className='w-full border rounded px-3 py-2'
+          aria-label='Bio'
           placeholder='Bio'
           value={form.bio}
           onChange={(e) => setForm({ ...form, bio: e.target.value })}
         />
         <input
           className='w-full border rounded px-3 py-2'
+          aria-label='Interests (comma separated)'
           placeholder='Interests (comma separated)'
           value={form.interests}
           onChange={(e) => setForm({ ...form, interests: e.target.value })}
@@ -132,7 +142,7 @@ export default function Profile() {
           <input
             id='photo'
             type='file'
-            accept='image/*'
+            accept='image/jpeg,image/png'
             className='hidden'
             onChange={(e) => {
               const file = e.target.files?.[0];

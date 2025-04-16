@@ -1,90 +1,63 @@
 import { useGetFeedQuery, useLikeProfileMutation, useUnlikeProfileMutation } from '../../services/api';
-import { useState, useEffect } from 'react';
+import type { MemberProfile } from '../../services/api';
+import { useState, useEffect, useRef } from 'react';
 
 export default function Feed() {
   const [page, setPage] = useState(1);
-  const [profiles, setProfiles] = useState<any[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-
-  const { data, isLoading } = useGetFeedQuery(page);
+  const [profiles, setProfiles] = useState<MemberProfile[]>([]);
+  const [pending, setPending] = useState<Set<string>>(new Set());
+  const locked = useRef(new Set<string>());
+  const [message, setMessage] = useState('');
+  const { currentData: data, isFetching, isError, refetch } = useGetFeedQuery(page);
   const [like] = useLikeProfileMutation();
   const [unlike] = useUnlikeProfileMutation();
-
   useEffect(() => {
-    if (data) {
-      setProfiles((prev) => {
-        return page === 1 ? data : [...prev, ...data];
-      });
-
-      if (data.length < 5) setHasMore(false);
-    }
+    if (data) setProfiles((previous) => {
+      const merged = page === 1 ? data : [...previous, ...data];
+      return Array.from(new Map(merged.map((item) => [item.id, item])).values());
+    });
   }, [data, page]);
-
-  const handleLikeToggle = async (profileId: string, liked: boolean, index: number) => {
-    const updated = [...profiles];
-    const profileCopy = { ...updated[index] }; // ✅ clone to make it writable
-
-    profileCopy.likedByCurrentUser = !liked;
-    profileCopy.likeCount += liked ? -1 : 1;
-
-    updated[index] = profileCopy;
-    setProfiles(updated);
-
+  const toggle = async (profile: MemberProfile) => {
+    if (locked.current.has(profile.id)) return;
+    locked.current.add(profile.id);
+    setPending(new Set(locked.current));
+    setMessage('');
     try {
-      if (liked) {
-        await unlike(profileId);
-      } else {
-        await like(profileId);
-      }
-    } catch {
-      profileCopy.likedByCurrentUser = liked;
-      profileCopy.likeCount += liked ? 1 : -1;
-      updated[index] = profileCopy;
-      setProfiles(updated);
-    }
+      if (profile.likedByCurrentUser) await unlike(profile.id).unwrap();
+      else await like(profile.id).unwrap();
+      setProfiles((previous) => previous.map((item) => item.id === profile.id ? {
+        ...item, likedByCurrentUser: !profile.likedByCurrentUser,
+        likeCount: Math.max(0, item.likeCount + (profile.likedByCurrentUser ? -1 : 1)),
+      } : item));
+    } catch { setMessage('Your change was not saved. Please try again.'); }
+    finally { locked.current.delete(profile.id); setPending(new Set(locked.current)); }
   };
-
   return (
-    <div className='max-w-3xl mx-auto mt-8'>
-      <h2 className='text-2xl font-bold mb-4'>Public Feed</h2>
-      <div className='space-y-6'>
-        {profiles.map((p, index) => (
-          <div key={p.id} className='bg-white p-4 shadow rounded-lg'>
-            <div className='flex items-center justify-between'>
-              <div>
-                <h3 className='text-lg font-semibold'>{p.name}</h3>
-                <p className='text-sm text-gray-600'>{p.headline}</p>
-              </div>
-              {p.photoUrl && <img src={p.photoUrl} alt='profile' className='w-16 h-16 rounded-full object-cover' />}
-            </div>
-            <p className='mt-2'>{p.bio}</p>
-            <p className='text-sm text-gray-500 mt-1'>Interests: {p.interests.join(', ')}</p>
-            <div className='mt-3'>
-              <button
-                onClick={() => handleLikeToggle(p.id, p.likedByCurrentUser, index)}
-                className='flex items-center space-x-1'
-              >
-                <span className={`text-2xl ${p.likedByCurrentUser ? 'text-red-600' : 'text-gray-400'}`}>
-                  {p.likedByCurrentUser ? '❤️' : '🤍'}
-                </span>
-                <span className='text-sm text-gray-600'>{p.likeCount}</span>
-              </button>
-            </div>
+    <main className="max-w-3xl mx-auto px-5 py-10">
+      <p className="text-sm text-slate-500 uppercase tracking-widest">Member directory</p>
+      <h1 className="text-4xl font-bold mt-2 mb-3">People and interests</h1>
+      <p className="text-slate-600 mb-8">Explore profiles and keep track of the people you appreciate.</p>
+      {message && <p role="alert" className="mb-4 text-red-700">{message}</p>}
+      {isError && <p role="alert">Profiles could not be loaded. <button onClick={() => refetch()}>Retry</button></p>}
+      {isFetching && <p role="status">Loading profiles…</p>}
+      {!isFetching && !isError && profiles.length === 0 && <p>No member profiles yet.</p>}
+      <div className="space-y-5">
+        {profiles.map((profile) => <article key={profile.id} className="bg-white border border-slate-200 p-6 rounded-2xl">
+          <div className="flex justify-between gap-4">
+            <div><h2 className="text-xl font-bold">{profile.name}</h2><p className="text-slate-600">{profile.headline}</p></div>
+            {profile.photoUrl && <img src={profile.photoUrl} alt="" className="w-14 h-14 rounded-full object-cover" />}
           </div>
-        ))}
-
-        {hasMore && (
-          <div className='text-center pt-6'>
-            <button
-              onClick={() => setPage((prev) => prev + 1)}
-              disabled={isLoading}
-              className='px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700'
-            >
-              {isLoading ? 'Loading...' : 'Load More'}
-            </button>
-          </div>
-        )}
+          <p className="mt-4">{profile.bio}</p>
+          <p className="text-sm text-slate-500 mt-3">{profile.interests.join(' · ')}</p>
+          <button className="mt-5 px-4 py-2 rounded-lg border border-slate-300 disabled:opacity-50"
+            aria-label={`Like ${profile.name}`} aria-pressed={profile.likedByCurrentUser}
+            disabled={pending.has(profile.id)} onClick={() => toggle(profile)}>
+            {profile.likedByCurrentUser ? 'Liked' : 'Like'} · {profile.likeCount}
+          </button>
+        </article>)}
       </div>
-    </div>
+      {!isError && data && data.length === 5 && <button className="mt-6 px-4 py-2 border rounded-lg"
+        disabled={isFetching} onClick={() => setPage((value) => value + 1)}>Load more</button>}
+    </main>
   );
 }

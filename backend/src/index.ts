@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
@@ -7,13 +7,18 @@ import profileRoutes from './routes/profile.route';
 import path from 'path';
 
 dotenv.config();
-const app = express();
+export const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173' }));
+app.use(express.json({ limit: '16kb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.resolve(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads')), { dotfiles: 'deny', setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff'); } }));
 
-app.listen(3001, () => console.log('API running on http://localhost:3001'));
+const errors: ErrorRequestHandler = (_error, _req, res, _next) => {
+  res.status(500).json({ error: 'Request could not be completed' });
+};
+app.use(errors);
+if (require.main === module) app.listen(Number(process.env.PORT || 3001), process.env.HOST || '127.0.0.1',
+  () => console.log('Local member API started'));

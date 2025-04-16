@@ -4,7 +4,7 @@ import Login from './features/auth/Login';
 import Signup from './features/auth/Signup';
 import Profile from './features/profile/Profile';
 import Feed from './features/feed/Feed';
-import { JSX } from 'react';
+import type { JSX } from 'react';
 
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
   const token = localStorage.getItem('token');

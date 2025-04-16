@@ -1,7 +1,13 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-const BASE_URL = 'http://localhost:3001/api';
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+export interface MemberProfile {
+  id: string; name: string; headline: string; bio: string; photoUrl?: string;
+  interests: string[]; likeCount: number; likedByCurrentUser: boolean;
+  likes?: { likedById: string }[];
+}
+interface LoginResult { token: string; userId: string; }
 export const api = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
@@ -13,18 +19,18 @@ export const api = createApi({
     },
   }),
   endpoints: (builder) => ({
-    signup: builder.mutation({ query: (data) => ({ url: 'auth/signup', method: 'POST', body: data }) }),
-    login: builder.mutation({ query: (data) => ({ url: 'auth/login', method: 'POST', body: data }) }),
-    getProfile: builder.query({ query: () => 'profile/me' }),
+    signup: builder.mutation<LoginResult, {email: string; password: string}>({ query: (data) => ({ url: 'auth/signup', method: 'POST', body: data }) }),
+    login: builder.mutation<LoginResult, {email: string; password: string}>({ query: (data) => ({ url: 'auth/login', method: 'POST', body: data }) }),
+    getProfile: builder.query<MemberProfile, void>({ query: () => 'profile/me' }),
     updateProfile: builder.mutation({ query: (data) => ({ url: 'profile', method: 'POST', body: data }) }),
     deleteProfile: builder.mutation({ query: () => ({ url: 'profile', method: 'DELETE' }) }),
-    getFeed: builder.query({
+    getFeed: builder.query<MemberProfile[], number>({
       query: (page = 1) => `profile/feed?page=${page}&limit=5`,
-      transformResponse: (res) => {
+      transformResponse: (res: MemberProfile[]) => {
         const userId = localStorage.getItem('userId');
         return res.map((p) => {
           const clone = structuredClone(p);
-          clone.likedByCurrentUser = p.likes?.some((like: any) => like.likedById === userId);
+          clone.likedByCurrentUser = Boolean(p.likes?.some((like: { likedById: string }) => like.likedById === userId));
           return clone;
         });
       }

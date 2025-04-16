@@ -49,6 +49,10 @@ export const deleteProfile = async (req: RequestWithUserId, res: Response) => {
 
 export const getFeed = async (req: RequestWithUserId, res: Response) => {
   const { page = '1', limit = '5' } = req.query;
+  if (typeof page !== 'string' || !/^[1-9]\d{0,4}$/.test(page) ||
+      typeof limit !== 'string' || !/^[1-9]\d?$/.test(limit) || Number(limit) > 50) {
+    return res.status(400).json({ error: 'Use page 1–99999 and limit 1–50' });
+  }
   const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
 
   const profiles = await prisma.profile.findMany({
