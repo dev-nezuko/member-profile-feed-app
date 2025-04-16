@@ -1,30 +1,31 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   errorMessage,
   useDeleteProfileMutation,
   useGetProfileQuery,
   useUpdateProfileMutation,
+  type OwnProfile,
 } from '../../services/api';
 
 interface Draft { name: string; headline: string; bio: string; interests: string; }
 const emptyDraft: Draft = { name: '', headline: '', bio: '', interests: '' };
 
 function usePreviewUrl(file: File | undefined) {
-  const [url, setUrl] = useState<string>();
-  useEffect(() => {
-    if (!file) { setUrl(undefined); return undefined; }
-    const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
+  const url = useMemo(() => (file ? URL.createObjectURL(file) : undefined), [file]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
   return url;
 }
+
+const draftFrom = (profile: OwnProfile | undefined): Draft => (profile
+  ? { name: profile.name, headline: profile.headline, bio: profile.bio, interests: profile.interests.join(', ') }
+  : emptyDraft);
 
 export default function Profile() {
   const { data: loaded, isLoading, error: loadError } = useGetProfileQuery();
   const [updateProfile, { isLoading: isSaving }] = useUpdateProfileMutation();
   const [deleteProfile, { isLoading: isDeleting }] = useDeleteProfileMutation();
   const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [draftSource, setDraftSource] = useState<OwnProfile>();
   const [photo, setPhoto] = useState<File>();
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
@@ -34,9 +35,11 @@ export default function Profile() {
   // RTK Query keeps the last good result after a refetch fails, so a 404 (no profile yet, or just deleted) wins.
   const data = isNewMember ? undefined : loaded;
 
-  useEffect(() => {
-    setDraft(data ? { name: data.name, headline: data.headline, bio: data.bio, interests: data.interests.join(', ') } : emptyDraft);
-  }, [data]);
+  // Reset the form when a different saved profile arrives (first load, save, delete), during render rather than in an effect.
+  if (data !== draftSource) {
+    setDraftSource(data);
+    setDraft(draftFrom(data));
+  }
 
   const edit = (field: keyof Draft, value: string) => {
     setDraft((previous) => ({ ...previous, [field]: value }));

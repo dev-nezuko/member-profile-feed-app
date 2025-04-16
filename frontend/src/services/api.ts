@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery, type BaseQueryFn, type FetchArgs, type FetchBaseQueryError } from '@reduxjs/toolkit/query/react';
 import { signedOut } from '../features/auth/authSlice';
 
+export const FEED_PAGE_SIZE = 5;
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export interface MemberProfile {
@@ -58,7 +59,13 @@ export const api = createApi({
       query: () => ({ url: 'profile', method: 'DELETE' }),
       invalidatesTags: ['OwnProfile'],
     }),
-    getFeed: builder.query<MemberProfile[], number>({ query: (page = 1) => `profile/feed?page=${page}&limit=5` }),
+    getFeed: builder.infiniteQuery<MemberProfile[], void, number>({
+      infiniteQueryOptions: {
+        initialPageParam: 1,
+        getNextPageParam: (lastPage, _allPages, lastPageParam) => (lastPage.length === FEED_PAGE_SIZE ? lastPageParam + 1 : undefined),
+      },
+      query: ({ pageParam }) => `profile/feed?page=${pageParam}&limit=${FEED_PAGE_SIZE}`,
+    }),
     likeProfile: builder.mutation<LikeSummary, string>({ query: (id) => ({ url: `profile/${id}/like`, method: 'POST' }) }),
     unlikeProfile: builder.mutation<LikeSummary, string>({ query: (id) => ({ url: `profile/${id}/unlike`, method: 'DELETE' }) }),
   }),
@@ -70,7 +77,7 @@ export const {
   useGetProfileQuery,
   useUpdateProfileMutation,
   useDeleteProfileMutation,
-  useGetFeedQuery,
+  useGetFeedInfiniteQuery,
   useLikeProfileMutation,
   useUnlikeProfileMutation,
 } = api;

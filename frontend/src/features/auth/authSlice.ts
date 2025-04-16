@@ -10,7 +10,7 @@ function storedSession(): Session | null {
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState: { session: storedSession() },
+  initialState: () => ({ session: storedSession() }),
   reducers: {
     signedIn(state, action: PayloadAction<Session>) {
       localStorage.setItem('token', action.payload.token);
