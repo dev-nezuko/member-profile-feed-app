@@ -14,6 +14,12 @@ test('responses carry security headers and photos may be embedded cross-origin',
   assert.equal(response.headers['x-powered-by'], undefined);
 });
 
+test('the health check answers without authentication', async () => {
+  const response = await request(app).get('/api/health');
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body, { status: 'ok' });
+});
+
 test('invalid signup bodies are rejected before touching the database', async () => {
   const response = await request(app).post('/api/auth/signup').send({ email: 'not-an-email', password: 'short' });
   assert.equal(response.status, 400);

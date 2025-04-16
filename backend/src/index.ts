@@ -14,6 +14,7 @@ app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173' }));
 app.use(express.json({ limit: '16kb' }));
 
+app.get('/api/health', (_req, res) => { res.json({ status: 'ok' }); });
 app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/uploads', express.static(uploadDirectory(), { dotfiles: 'deny', setHeaders: (res) => { res.setHeader('X-Content-Type-Options', 'nosniff'); } }));

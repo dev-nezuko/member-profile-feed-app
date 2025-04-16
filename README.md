@@ -26,7 +26,7 @@ Use Node and a dedicated PostgreSQL database. From `backend`:
 
 ```sh
 npm ci --ignore-scripts
-cp .env.sample .env
+cp .env.example .env
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
