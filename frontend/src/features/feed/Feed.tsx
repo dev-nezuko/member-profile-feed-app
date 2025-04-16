@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react';
+import ProfileCard from '../../components/ProfileCard';
 import {
   useGetFeedInfiniteQuery,
   useLikeProfileMutation,
@@ -6,6 +7,26 @@ import {
   type LikeSummary,
   type MemberProfile,
 } from '../../services/api';
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="w-5 h-5" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+      <path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <div aria-hidden="true" className="bg-card border border-line rounded-3xl p-6 animate-pulse">
+      <div className="flex gap-4">
+        <div className="w-16 h-16 rounded-2xl bg-line" />
+        <div className="flex-1 space-y-2 pt-1"><div className="h-5 w-1/2 rounded bg-line" /><div className="h-4 w-1/3 rounded bg-line" /></div>
+      </div>
+      <div className="h-4 w-5/6 rounded bg-line mt-5" />
+    </div>
+  );
+}
 
 export default function Feed() {
   const { data, isLoading, isFetchingNextPage, isError, hasNextPage, fetchNextPage, refetch } = useGetFeedInfiniteQuery();
@@ -44,36 +65,49 @@ export default function Feed() {
   const retry = () => (data ? fetchNextPage() : refetch());
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-10">
-      <p className="text-sm text-slate-500 uppercase tracking-widest">Member directory</p>
-      <h1 className="text-4xl font-bold mt-2 mb-3">People and interests</h1>
-      <p className="text-slate-600 mb-8">Explore profiles and keep track of the people you appreciate.</p>
-      {message && <p role="alert" className="mb-4 text-red-700">{message}</p>}
-      {isLoading && <p role="status">Loading profiles…</p>}
-      {!isLoading && !isError && profiles.length === 0 && <p>No member profiles yet.</p>}
+    <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+      <header className="mb-8">
+        <p className="text-rust-deep font-bold uppercase tracking-[0.18em] text-sm">Member board</p>
+        <h1 className="text-4xl sm:text-5xl font-extrabold mt-2">Who's here</h1>
+        <p className="text-muted mt-3 max-w-xl">Newest members first. Like a profile to let someone know you appreciate what they shared.</p>
+      </header>
+      {message && <p role="alert" className="notice notice-error mb-5">{message}</p>}
+      {isLoading && (
+        <div className="space-y-5">
+          <p role="status" className="sr-only">Loading profiles…</p>
+          <CardSkeleton /><CardSkeleton />
+        </div>
+      )}
+      {!isLoading && !isError && profiles.length === 0 && (
+        <div className="border-2 border-dashed border-line rounded-3xl p-8 text-center">
+          <p className="font-display text-2xl font-extrabold">No member profiles yet.</p>
+          <p className="text-muted mt-2">When other members save a profile, it will appear here.</p>
+        </div>
+      )}
       <div className="space-y-5">
-        {profiles.map((profile) => <article key={profile.id} className="bg-white border border-slate-200 p-6 rounded-2xl">
-          <div className="flex justify-between gap-4">
-            <div><h2 className="text-xl font-bold">{profile.name}</h2><p className="text-slate-600">{profile.headline}</p></div>
-            {profile.photoUrl && <img src={profile.photoUrl} alt="" className="w-14 h-14 rounded-full object-cover" />}
-          </div>
-          <p className="mt-4">{profile.bio}</p>
-          <p className="text-sm text-slate-500 mt-3">{profile.interests.join(' · ')}</p>
-          <button type="button" className="mt-5 px-4 py-2 rounded-lg border border-slate-300 disabled:opacity-50"
-            aria-label={`Like ${profile.name}`} aria-pressed={profile.likedByCurrentUser}
-            disabled={pending.has(profile.id)} onClick={() => toggle(profile)}>
-            {profile.likedByCurrentUser ? 'Liked' : 'Like'} · {profile.likeCount}
-          </button>
-        </article>)}
+        {profiles.map((profile) => (
+          <ProfileCard key={profile.id} {...profile} footer={(
+            <button type="button" aria-label={`Like ${profile.name}`} aria-pressed={profile.likedByCurrentUser}
+              disabled={pending.has(profile.id)} onClick={() => toggle(profile)}
+              className={`btn ${profile.likedByCurrentUser ? 'bg-rust-wash text-rust-deep border-rust/40' : 'btn-quiet'}`}>
+              <HeartIcon filled={profile.likedByCurrentUser} />
+              <span>{profile.likedByCurrentUser ? 'Liked' : 'Like'}</span>
+              <span className="tabular-nums">{profile.likeCount}</span>
+            </button>
+          )} />
+        ))}
       </div>
       {isError && (
-        <p role="alert" className="mt-6">
-          Profiles could not be loaded. <button type="button" onClick={retry}>Retry</button>
-        </p>
+        <div role="alert" className="notice notice-error mt-6 flex flex-wrap items-center justify-between gap-3">
+          <span>Profiles could not be loaded.</span>
+          <button type="button" className="btn btn-quiet bg-card" onClick={retry}>Retry</button>
+        </div>
       )}
-      {isFetchingNextPage && <p role="status" className="mt-6">Loading more profiles…</p>}
+      {isFetchingNextPage && <p role="status" className="mt-6 text-muted">Loading more profiles…</p>}
       {!isError && hasNextPage && !isFetchingNextPage && (
-        <button type="button" className="mt-6 px-4 py-2 border rounded-lg" onClick={() => fetchNextPage()}>Load more</button>
+        <div className="mt-8 text-center">
+          <button type="button" className="btn btn-quiet bg-card" onClick={() => fetchNextPage()}>Load more</button>
+        </div>
       )}
     </main>
   );

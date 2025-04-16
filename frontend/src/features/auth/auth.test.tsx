@@ -50,7 +50,7 @@ describe('login and signup', () => {
     mockApi({ 'GET /profile/feed?page=1&limit=5': { body: [] } });
     const { user, store } = renderApp('/');
     expect(await screen.findByText('No member profiles yet.')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Logout' }));
+    await user.click(screen.getByRole('button', { name: 'Log out' }));
     expect(screen.getByRole('heading', { name: 'Log in to your account' })).toBeInTheDocument();
     expect(store.getState().auth.session).toBeNull();
     expect(store.getState().api.queries).toEqual({});
