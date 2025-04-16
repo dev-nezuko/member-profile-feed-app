@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { Response } from 'express';
 import { RequestWithUserId } from '../types/express';
 
@@ -23,7 +23,7 @@ export const updateProfile = async (req: RequestWithUserId, res: Response) => {
   const { name, headline, bio, interests } = req.body;
   const filePath = req.file ? `/uploads/${req.file.filename}` : undefined;
 
-  const data: any = {
+  const data: Prisma.ProfileUncheckedCreateInput = {
     name,
     headline,
     bio,
